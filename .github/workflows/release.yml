@@ -1,28 +1,21 @@
-name: Build binaries & attach to new release
-
+name: Publish release on version change
 on:
-  release:
-    types: [created]
+  push:
+    branches:
+      - main
 
 jobs:
-  generate:
-    name: Generate release-artifacts
+  build:
+    name: Release
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        uses: actions/checkout@v2
         with:
-          bun-version: latest
-      - name: Install dependencies
-        run: bun install
-      - name: Build
-        run: bun run build:all
-      - name: Upload artifacts
-        uses: AButler/upload-release-assets@v3.0
-        with:
-          files: "dist/*"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      - name: Release
+        uses: justincy/github-action-npm-release@v1.2.0
+        id: release
+      - name: Print release output
+        if: ${{ steps.release.outputs.released == 'true' }}
+        run: echo Release ID ${{ steps.release.outputs.release_id }}

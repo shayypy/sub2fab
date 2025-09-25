@@ -193,57 +193,27 @@ export const processIdx = async (
   await $`${paths.ffmpeg} -f lavfi -i color=size=${size}:duration=59.07:rate=${fps}:color=black@0.0,format=rgba -i ${filename}.rw.idx -filter_complex "[0:v][1:s]overlay[v]" -map "[v]" -f image2 -frame_pts true -c:s png -vsync 0 -frames:v ${idx.paragraphs.length + 1} ${path.join(dir, "fabscript", "IMAGE%03d.png")} -y`.quiet();
   await $`rm ${filename}.rw.idx ${filename}.rw.sub ${path.join(dir, "fabscript", "IMAGE000.png")}`;
 
+  const [width, height] = size.split("x");
   const out = path.join(dir, "fabscript", "Fab_Image_script.txt");
   await Bun.write(
     out,
     idx.paragraphs
-      .map(
-        // WARNING: using the uncropped subtitles is experimental, not sure how it performs yet
-        (paragraph, i) =>
-          `IMAGE${(i + 1).toString().padStart(3, "0")}.png ${secToTimestamp(paragraph.startTime / 1000, ";")} 0 0 0 0`,
-      )
+      .map((paragraph, i) => {
+        // I don't know how to correctly determine subtitle duration
+        // currently, so we're making a guess and avoiding overlaps.
+        const nextStartTime = idx.paragraphs[i + 1]?.startTime;
+        const maxDuration = 6000;
+        let nextTs = secToTimestamp(
+          (nextStartTime !== undefined
+            ? Math.min(paragraph.startTime + maxDuration, nextStartTime - 500)
+            : paragraph.startTime + maxDuration) / 1000,
+          ";",
+        );
+
+        return `IMAGE${(i + 1).toString().padStart(3, "0")}.png ${secToTimestamp(paragraph.startTime / 1000, ";")} ${nextTs} 0 0 ${width} ${height}`;
+      })
       .join("\n"),
   );
-
-  // const glob = new Bun.Glob(`${filename}.frame*.png`);
-  // for await (const file of glob.scan()) {
-  // 	// TODO: crop each image - https://stackoverflow.com/a/62378527
-  // 	await $`${paths.ffmpeg} -loop 1 -i ${}`
-  // }
-
-  // Extract single image from PES
-  // const file = await Bun.file("test/charliesub.sub").bytes();
-  // const buffers: Buffer[] = [];
-
-  // let i = -1;
-  // for (const para of idx.paragraphs) {
-  // 	i += 1;
-  // 	const start = para.filePosition;
-
-  // 	const nextPos = idx.paragraphs[i + 1]?.filePosition;
-  // 	const end = nextPos === undefined ? file.length : nextPos;
-  // 	const packet = file.slice(start, end);
-  // 	console.log({ len: packet.length, start, end });
-
-  // 	// According to https://dvd.sourceforge.net/dvdinfo/pes-hdr.html,
-  // 	// the stream with ID 0xBD (189) contains the subpictures, but in my
-  // 	// testing with SubtitleEdit-generated .sub files, the only stream IDs I
-  // 	// encountered were ID 0xBA (186).
-  // 	const streamId = packet[3];
-  // 	// if (streamId === 0xba) {
-  // 	// 	console.log("subpicture stream");
-  // 	// }
-  // 	// I think this is right?
-  // 	const packetLength = Number(`${packet[4] ?? ""}${packet[5] ?? ""}`);
-  // 	const headerLength = packet[8];
-  // 	console.log({ streamId, packetLength, headerLength });
-
-  // 	const firstByte = 5 + (headerLength ?? 0);
-  // 	const rest = packet.slice(firstByte, packetLength);
-  // 	if (i === 0) {
-  // 		await Bun.write(`test/${para.startTime}.bmp`, rest);
-  // 	}
-  // }
 
   return out;
 };
