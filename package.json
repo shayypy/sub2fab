@@ -1,7 +1,7 @@
 {
   "name": "sub2fab",
   "module": "index.ts",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "scripts": {
     "build": "bun build --compile --minify --sourcemap ./src/cli.ts",
     "build:win:x64": "bun run build --target=bun-windows-x64 --outfile dist/sub2fab-win-x64.exe",
