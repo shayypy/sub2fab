@@ -190,7 +190,13 @@ export const processIdx = async (
   // https://ffmpeg.org/pipermail/ffmpeg-user/2024-July/058494.html
 
   await $`mkdir -p ${path.join(dir, "fabscript")}`;
-  await $`${paths.ffmpeg} -f lavfi -i color=size=${size}:duration=59.07:rate=${fps}:color=black@0.0,format=rgba -i ${filename}.rw.idx -filter_complex "[0:v][1:s]overlay[v]" -map "[v]" -f image2 -frame_pts true -c:s png -vsync 0 -frames:v ${idx.paragraphs.length + 1} ${path.join(dir, "fabscript", "IMAGE%03d.png")} -y`.quiet();
+
+  // one paragraph per frame means the duration is equal to the number of
+  // paragraphs multiplied by the duration of one frame (1/30 of a second
+  // for 30fps). add one (and minimum of 1s) for insurance. also keep in
+  // mind that the first frame is skipped.
+  const duration = Math.max(idx.paragraphs.length * (1 / fps), 0) + 1;
+  await $`${paths.ffmpeg} -f lavfi -i color=size=${size}:duration=${Math.ceil(duration)}:rate=${fps}:color=black@0.0,format=rgba -i ${filename}.rw.idx -filter_complex "[0:v][1:s]overlay[v]" -map "[v]" -f image2 -frame_pts true -c:s png -vsync 0 -frames:v ${idx.paragraphs.length + 1} ${path.join(dir, "fabscript", "IMAGE%03d.png")} -y`.quiet();
   await $`rm ${filename}.rw.idx ${filename}.rw.sub ${path.join(dir, "fabscript", "IMAGE000.png")}`;
 
   const [width, height] = size.split("x");
